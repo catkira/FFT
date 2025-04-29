@@ -1,12 +1,30 @@
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 //
-// Title       : int_addsub_dsp48
-// Design      : Integer Fast Fourier Transform
-// Author      : Kapitanov Alexander
-// Company     :
+//  GNU GENERAL PUBLIC LICENSE
+//  Version 3,29 June 2007
 //
-// Description : Integer adder/subtractor based on DSP48 block
+//  Copyright (c) 2018 Kapitanov Alexander
+//  Copyright (c) 2023 Benjamin Menkuec
 //
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation,either version 3 of the License,or
+//  (at your option) any later version.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not,see <http://www.gnu.org/licenses/>.
+//
+//  THERE IS NO WARRANTY FOR THE PROGRAM,TO THE EXTENT PERMITTED BY
+//  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
+//  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
+//  OF ANY KIND,EITHER EXPRESSED OR IMPLIED,INCLUDING,BUT NOT LIMITED TO,
+//  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
+//  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM 
+//  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE,YOU ASSUME THE COST OF 
+//  ALL NECESSARY SERVICING,REPAIR OR CORRECTION. 
+// 
+//-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 //
 //  Version 1.0: 22.11.2018
@@ -46,49 +64,22 @@
 //  [A:B] and [C] port: - OPMODE: "000110011" (W = 00,Z = 011,Y = 00,X = 11)
 //  Add op: ALUMODE - "0000" P = Z + Y + X,
 //  Sub op: ALUMODE - "0011" P = Z - Y - X;
-//
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-//
-//  GNU GENERAL PUBLIC LICENSE
-//  Version 3,29 June 2007
-//
-//  Copyright (c) 2018 Kapitanov Alexander
-//
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation,either version 3 of the License,or
-//  (at your option) any later version.
-//
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not,see <http://www.gnu.org/licenses/>.
-//
-//  THERE IS NO WARRANTY FOR THE PROGRAM,TO THE EXTENT PERMITTED BY
-//  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
-//  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
-//  OF ANY KIND,EITHER EXPRESSED OR IMPLIED,INCLUDING,BUT NOT LIMITED TO,
-//  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
-//  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM 
-//  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE,YOU ASSUME THE COST OF 
-//  ALL NECESSARY SERVICING,REPAIR OR CORRECTION. 
-// 
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
+`timescale 1ns / 1ns
 
 module int_addsub_dsp48 
     #(
         parameter 
-        DATA_WIDTH = 16,
+        DSPW       = 16,
         XSER       = "OLD"
     )
     (
-        input                                                  CLK, RST,
-        input      signed [DATA_WIDTH-1 : 0] IA_RE, IA_IM, IB_RE, IB_IM,
-        output reg signed [DATA_WIDTH   : 0] OX_RE, OX_IM, OY_RE, OY_IM
+        input                          CLK, RST,
+        input      signed [DSPW-1 : 0] IA_RE, IA_IM, IB_RE, IB_IM,
+        output reg signed [DSPW   : 0] OX_RE, OX_IM, OY_RE, OY_IM
     );
     
     generate 
-        if ((DATA_WIDTH > 23) & (DATA_WIDTH < 48)) begin
+        if ((DSPW > 23) & (DSPW < 48)) begin
             wire [29 : 0] dspA_RE, dspA_IM;
             wire [17 : 0] dspB_RE, dspB_IM;
             wire [47 : 0] dspC_RE, dspC_IM;
@@ -100,17 +91,17 @@ module int_addsub_dsp48
             assign dspB_IM = IB_IM[17 : 00];
     
             // -- A port 48-bit data ----
-            assign dspA_RE = { {(30-DATA_WIDTH){IB_RE[DATA_WIDTH-1]}}, IB_RE[DATA_WIDTH-1 : 0] };
-            assign dspA_IM = { {(30-DATA_WIDTH){IB_IM[DATA_WIDTH-1]}}, IB_IM[DATA_WIDTH-1 : 0] };
+            assign dspA_RE = { {(30-DSPW+18){IB_RE[DSPW-1]}}, IB_RE[DSPW-1 : 18] };
+            assign dspA_IM = { {(30-DSPW+18){IB_IM[DSPW-1]}}, IB_IM[DSPW-1 : 18] };
 
-            assign dspC_RE = { {(48-DATA_WIDTH){IA_RE[DATA_WIDTH-1]}}, IA_RE[DATA_WIDTH-1 : 0] };
-            assign dspC_IM = { {(48-DATA_WIDTH){IA_IM[DATA_WIDTH-1]}}, IA_IM[DATA_WIDTH-1 : 0] };
+            assign dspC_RE = { {(48-DSPW){IA_RE[DSPW-1]}}, IA_RE[DSPW-1 : 0] };
+            assign dspC_IM = { {(48-DSPW){IA_IM[DSPW-1]}}, IA_IM[DSPW-1 : 0] };
         
             always @(*) begin
-                OX_RE = dspX_RE[DATA_WIDTH : 0];
-                OX_IM = dspX_IM[DATA_WIDTH : 0];
-                OY_RE = dspY_RE[DATA_WIDTH : 0];
-                OY_IM = dspY_IM[DATA_WIDTH : 0];
+                OX_RE = dspX_RE[DSPW : 0];
+                OX_IM = dspX_IM[DSPW : 0];
+                OY_RE = dspY_RE[DSPW : 0];
+                OY_IM = dspY_IM[DSPW : 0];
             end
             
             if (XSER == "NEW") begin
@@ -611,23 +602,23 @@ module int_addsub_dsp48
                 );    
             end
         end 
-        else if (DATA_WIDTH < 24) begin
+        else if (DSPW < 24) begin
 
             wire [29 : 0] dspA_XY;
             wire [17 : 0] dspB_XY;
             wire [47 : 0] dspAB, dspC_XY, dspP_XX, dspP_YY;
 
             //-- Create A:B 48-bit data ----
-            assign dspC_XY = { {(24-DATA_WIDTH){IA_IM[DATA_WIDTH-1]}}, IA_IM, {(24-DATA_WIDTH){IA_RE[DATA_WIDTH-1]}}, IA_RE };
-            assign dspAB   = { {(24-DATA_WIDTH){IB_IM[DATA_WIDTH-1]}}, IB_IM, {(24-DATA_WIDTH){IB_RE[DATA_WIDTH-1]}}, IB_RE };
+            assign dspC_XY = { {(24-DSPW){IA_IM[DSPW-1]}}, IA_IM, {(24-DSPW){IA_RE[DSPW-1]}}, IA_RE };
+            assign dspAB   = { {(24-DSPW){IB_IM[DSPW-1]}}, IB_IM, {(24-DSPW){IB_RE[DSPW-1]}}, IB_RE };
             assign dspA_XY = dspAB[47 : 18];
             assign dspB_XY = dspAB[17 : 00];
            
             always @(*) begin
-                OX_RE = dspP_XX[DATA_WIDTH    : 00];
-                OY_RE = dspP_YY[DATA_WIDTH    : 00];
-                OX_IM = dspP_XX[DATA_WIDTH+24 : 24];
-                OY_IM = dspP_YY[DATA_WIDTH+24 : 24];
+                OX_RE = dspP_XX[DSPW    : 00];
+                OY_RE = dspP_YY[DSPW    : 00];
+                OX_IM = dspP_XX[DSPW+24 : 24];
+                OY_IM = dspP_YY[DSPW+24 : 24];
             end
             if (XSER == "NEW") begin    
                 DSP48E2 #(
@@ -883,7 +874,7 @@ module int_addsub_dsp48
                 );
             end
         end 
-        else if (DATA_WIDTH > 47) begin
+        else if (DSPW > 47) begin
             
             wire [29 : 0] dspA_RE1, dspA_RE2, dspA_IM1, dspA_IM2;
             wire [17 : 0] dspB_RE1, dspB_RE2, dspB_IM1, dspB_IM2;
@@ -898,10 +889,10 @@ module int_addsub_dsp48
             wire dspC_XR, dspC_XI, dspC_YR, dspC_YI;
         
             // -- port 48-bit data ----
-            assign dspA_RE = { {(96-DATA_WIDTH){IA_RE[DATA_WIDTH-1]}}, IA_RE[DATA_WIDTH-1 : 0] };
-            assign dspA_IM = { {(96-DATA_WIDTH){IA_IM[DATA_WIDTH-1]}}, IA_IM[DATA_WIDTH-1 : 0] };
-            assign dspB_RE = { {(96-DATA_WIDTH){IB_RE[DATA_WIDTH-1]}}, IB_RE[DATA_WIDTH-1 : 0] };
-            assign dspB_IM = { {(96-DATA_WIDTH){IB_IM[DATA_WIDTH-1]}}, IB_IM[DATA_WIDTH-1 : 0] };
+            assign dspA_RE = { {(96-DSPW){IA_RE[DSPW-1]}}, IA_RE[DSPW-1 : 0] };
+            assign dspA_IM = { {(96-DSPW){IA_IM[DSPW-1]}}, IA_IM[DSPW-1 : 0] };
+            assign dspB_RE = { {(96-DSPW){IB_RE[DSPW-1]}}, IB_RE[DSPW-1 : 0] };
+            assign dspB_IM = { {(96-DSPW){IB_IM[DSPW-1]}}, IB_IM[DSPW-1 : 0] };
 
             assign dspB_RE1 = dspB_RE[17 : 00];
             assign dspB_IM1 = dspB_IM[17 : 00];
@@ -928,10 +919,10 @@ module int_addsub_dsp48
                 OY_IM[47 : 0] <= dspY_IM1;
             end
             always @(*) begin
-                OX_RE[DATA_WIDTH : 48] = dspX_RE2[DATA_WIDTH-48 : 0];
-                OX_IM[DATA_WIDTH : 48] = dspX_IM2[DATA_WIDTH-48 : 0];
-                OY_RE[DATA_WIDTH : 48] = dspY_RE2[DATA_WIDTH-48 : 0];
-                OY_IM[DATA_WIDTH : 48] = dspY_IM2[DATA_WIDTH-48 : 0];
+                OX_RE[DSPW : 48] = dspX_RE2[DSPW-48 : 0];
+                OX_IM[DSPW : 48] = dspX_IM2[DSPW-48 : 0];
+                OY_RE[DSPW : 48] = dspY_RE2[DSPW-48 : 0];
+                OY_IM[DSPW : 48] = dspY_IM2[DSPW-48 : 0];
             end    
 
             if (XSER == "NEW") begin    

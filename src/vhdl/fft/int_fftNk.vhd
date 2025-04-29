@@ -1,13 +1,31 @@
 -------------------------------------------------------------------------------
---
--- Title       : int_fftNk
--- Design      : Integer Forward FFTK
--- Author      : Kapitanov Alexander
--- Company     : 
--- E-mail      : sallador@bk.ru
---
 -------------------------------------------------------------------------------
 --
+--  GNU GENERAL PUBLIC LICENSE
+--  Version 3, 29 June 2007
+--  
+--  Copyright (c) 2018 Kapitanov Alexander
+--  
+--  This program is free software: you can redistribute it and/or modify
+--  it under the terms of the GNU General Public License as published by
+--  the Free Software Foundation, either version 3 of the License, or
+--  (at your option) any later version.
+--  
+--  You should have received a copy of the GNU General Public License
+--  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+--  
+--  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+--  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
+--  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
+--  OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, 
+--  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
+--  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM 
+--  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF 
+--  ALL NECESSARY SERVICING, REPAIR OR CORRECTION. 
+-- 
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
 -- Description : Integer Unscaled / Scaled Forward Fast Fourier Transform: 
 --               N = 8 to 512K (points of data)        
 --               For N > 512K you should use 2D-FFT scheme
@@ -39,33 +57,7 @@
 --    FORMAT  : 1 - Unscaled, 0 - Scaled data output
 --    RNDMODE : 1 - Rounding (round), 0 - Truncate (floor)
 --
--------------------------------------------------------------------------------
--------------------------------------------------------------------------------
---
---  GNU GENERAL PUBLIC LICENSE
---  Version 3, 29 June 2007
---  
---  Copyright (c) 2018 Kapitanov Alexander
---  
---  This program is free software: you can redistribute it and/or modify
---  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation, either version 3 of the License, or
---  (at your option) any later version.
---  
---  You should have received a copy of the GNU General Public License
---  along with this program.  If not, see <http://www.gnu.org/licenses/>.
---  
---  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
---  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
---  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
---  OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, 
---  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
---  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM 
---  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF 
---  ALL NECESSARY SERVICING, REPAIR OR CORRECTION. 
--- 
--------------------------------------------------------------------------------
--------------------------------------------------------------------------------
+
 library ieee;
 use ieee.std_logic_1164.all;
 
@@ -73,7 +65,6 @@ entity int_fftNk is
     generic (
         -- IS_SIM      : boolean:=FALSE;        --! Simulation model: TRUE / FALSE    
         NFFT        : integer:=5;            --! Number of FFT stages
-        RAMB_TYPE   : string:="WRAP";        --! Cross-commutation type: WRAP / CONT
         -- MODE        : string:="UNSCALED"; --! Unscaled, Rounding, Truncate modes
         FORMAT      : integer:=1;            --! 1 - Uscaled, 0 - Scaled
         RNDMODE     : integer:=0;            --! 0 - Truncate, 1 - Rounding (FORMAT should be = 1)       
@@ -286,43 +277,23 @@ xDELAYS: for ii in 0 to NFFT-2 generate
     di_bb(ii)(2*DW-1 downto 0) <= xb_im(ii)(DW-1 downto 0) & xb_re(ii)(DW-1 downto 0);    
     di_en(ii) <= xx_vl(ii);
     
-    xCONT_IN: if (RAMB_TYPE = "CONT") generate
-        xDELAY_LINE : entity work.int_delay_line
-            generic map(
-                NWIDTH       => 2*DW,
-                NFFT         => NFFT,
-                STAGE        => ii
-            )
-            port map (
-                DI_AA        => di_aa(ii)(2*DW-1 downto 0),
-                DI_BB        => di_bb(ii)(2*DW-1 downto 0),
-                DI_EN        => di_en(ii),  
-                DO_AA        => do_aa(ii)(2*DW-1 downto 0),
-                DO_BB        => do_bb(ii)(2*DW-1 downto 0),
-                DO_VL        => do_en(ii),
-                RST          => rst,
-                CLK          => clk
-            );
-    end generate;
-    xWRAP_IN: if (RAMB_TYPE = "WRAP") generate
-        xDELAY_LINE : entity work.int_delay_wrap
-            generic map(
-                NWIDTH       => 2*DW,
-                NFFT         => NFFT,
-                STAGE        => ii
-            )
-            port map (
-                DI_AA        => di_aa(ii)(2*DW-1 downto 0),
-                DI_BB        => di_bb(ii)(2*DW-1 downto 0),
-                DI_EN        => di_en(ii),  
-                DO_AA        => do_aa(ii)(2*DW-1 downto 0),
-                DO_BB        => do_bb(ii)(2*DW-1 downto 0),
-                DO_VL        => do_en(ii),
-                RST          => rst,
-                CLK          => clk
-            );
-    end generate;
-    
+    xDELAY_LINE : entity work.int_delay_line
+        generic map(
+            NWIDTH       => 2*DW,
+            NFFT         => NFFT,
+            STAGE        => ii
+        )
+        port map (
+            DI_AA        => di_aa(ii)(2*DW-1 downto 0),
+            DI_BB        => di_bb(ii)(2*DW-1 downto 0),
+            DI_EN        => di_en(ii),  
+            DO_AA        => do_aa(ii)(2*DW-1 downto 0),
+            DO_BB        => do_bb(ii)(2*DW-1 downto 0),
+            DO_VL        => do_en(ii),
+            RST          => rst,
+            CLK          => clk
+        );
+
     ia_re(ii+1)(DW-1 downto 0) <= do_aa(ii)(1*DW-1 downto 0*DW);
     ia_im(ii+1)(DW-1 downto 0) <= do_aa(ii)(2*DW-1 downto 1*DW);
     ib_re(ii+1)(DW-1 downto 0) <= do_bb(ii)(1*DW-1 downto 0*DW);

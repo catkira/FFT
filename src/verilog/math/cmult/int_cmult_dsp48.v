@@ -1,12 +1,30 @@
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 //
-// Title       : int_cmult_dsp48
-// Design      : FFTK
-// Author      : Kapitanov
-// Company     :
+//    GNU GENERAL PUBLIC LICENSE
+//  Version 3, 29 June 2007
 //
-// Description : Integer complex multiplier on DSP48 block
+//    Copyright (c) 2018 Kapitanov Alexander
+//    Copyright (c) 2023 Benjamin Menkuec
 //
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+//  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
+//  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
+//  OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, 
+//  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
+//  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM 
+//  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF 
+//  ALL NECESSARY SERVICING, REPAIR OR CORRECTION. 
+// 
+//-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 //
 //    Version 1.0: 13.02.2018
@@ -53,33 +71,7 @@
 // *** - 34 bit for DSP48E1, 35 bit for DSP48E2;
 //
 //
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-//
-//    GNU GENERAL PUBLIC LICENSE
-//  Version 3, 29 June 2007
-//
-//    Copyright (c) 2018 Kapitanov Alexander
-//
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-//
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-//
-//  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
-//  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
-//  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
-//  OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, 
-//  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
-//  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM 
-//  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF 
-//  ALL NECESSARY SERVICING, REPAIR OR CORRECTION. 
-// 
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
+`timescale 1ns / 1ns
 
 module int_cmult_dsp48
     #(
@@ -119,28 +111,28 @@ module int_cmult_dsp48
                 assign D_RE = P_RE[DTW+TWD-2 : TWD-1];
                 assign D_IM = P_IM[DTW+TWD-2 : TWD-1];
         
-                int_cmult18x25_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU(4'b0011), .XSER(XSER))
+                int_cmult18x25_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU("SUB"), .XSER(XSER))
                 xMDSP_RE ( .M1_AA(DI_IM), .M1_BB(WW_IM), .M2_AA(DI_RE), .M2_BB(WW_RE), .MP_12(P_RE), .RST(RST), .CLK(CLK) );
                 
-                int_cmult18x25_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU(4'b0000), .XSER(XSER))
+                int_cmult18x25_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU("ADD"), .XSER(XSER))
                 xMDSP_IM ( .M1_AA(DI_IM), .M1_BB(WW_RE), .M2_AA(DI_RE), .M2_BB(WW_IM), .MP_12(P_IM), .RST(RST), .CLK(CLK) );
             
             // ---- Data width from 25/27 to 42/44 ----
             end else if ((DTW > DTW18_SNGL-1) & (DTW < DTW18_DBL)) begin : xDBL_DSP
     
-                int_cmult_dbl18_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU(4'b0011), .XSER(XSER))
+                int_cmult_dbl18_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU("SUB"), .XSER(XSER))
                 xMDSP_RE ( .M1_AA(DI_IM), .M1_BB(WW_IM), .M2_AA(DI_RE), .M2_BB(WW_RE), .MP_12(D_RE), .RST(RST), .CLK(CLK) );
                 
-                int_cmult_dbl18_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU(4'b0000), .XSER(XSER))
+                int_cmult_dbl18_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU("ADD"), .XSER(XSER))
                 xMDSP_IM ( .M1_AA(DI_IM), .M1_BB(WW_RE), .M2_AA(DI_RE), .M2_BB(WW_IM), .MP_12(D_IM), .RST(RST), .CLK(CLK) );    
             
             // ---- Data width from 42/44 to 59/61 ----
             end else if ((DTW > DTW18_DBL-1) & (DTW < DTW18_TRPL)) begin : xTRPL_DSP
                 
-                int_cmult_trpl18_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU(4'b0011), .XSER(XSER))
+                int_cmult_trpl18_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU("SUB"), .XSER(XSER))
                 xMDSP_RE ( .M1_AA(DI_IM), .M1_BB(WW_IM), .M2_AA(DI_RE), .M2_BB(WW_RE), .MP_12(D_RE), .RST(RST), .CLK(CLK) );
                 
-                int_cmult_trpl18_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU(4'b0000), .XSER(XSER))
+                int_cmult_trpl18_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU("ADD"), .XSER(XSER))
                 xMDSP_IM ( .M1_AA(DI_IM), .M1_BB(WW_RE), .M2_AA(DI_RE), .M2_BB(WW_IM), .MP_12(D_IM), .RST(RST), .CLK(CLK) );                
     
             end
@@ -156,28 +148,28 @@ module int_cmult_dsp48
                 assign D_RE = P_RE[DTW+TWD-3 : TWD-2];
                 assign D_IM = P_IM[DTW+TWD-3 : TWD-2];
             
-                int_cmult18x25_dsp48 #( .MAW(TWD), .MBW(DTW), .XALU(4'b0011), .XSER(XSER))
+                int_cmult18x25_dsp48 #( .MAW(TWD), .MBW(DTW), .XALU("SUB"), .XSER(XSER))
                 xMDSP_RE ( .M1_AA(WW_IM), .M1_BB(DI_IM), .M2_AA(WW_RE), .M2_BB(DI_RE), .MP_12(P_RE), .RST(RST), .CLK(CLK) );
                 
-                int_cmult18x25_dsp48 #( .MAW(TWD), .MBW(DTW), .XALU(4'b0000), .XSER(XSER))
+                int_cmult18x25_dsp48 #( .MAW(TWD), .MBW(DTW), .XALU("ADD"), .XSER(XSER))
                 xMDSP_IM ( .M1_AA(WW_RE), .M1_BB(DI_IM), .M2_AA(WW_IM), .M2_BB(DI_RE), .MP_12(P_IM), .RST(RST), .CLK(CLK) );        
             
             // ---- Data width from 18 to 35 ----
             end else if ((DTW > 18) & (DTW < 36)) begin : xDBL_DSP
     
-                int_cmult_dbl35_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU(4'b0011), .XSER(XSER))
+                int_cmult_dbl35_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU("SUB"), .XSER(XSER))
                 xMDSP_RE ( .M1_AA(DI_IM), .M1_BB(WW_IM), .M2_AA(DI_RE), .M2_BB(WW_RE), .MP_12(D_RE), .RST(RST), .CLK(CLK) );
                 
-                int_cmult_dbl35_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU(4'b0000), .XSER(XSER))
+                int_cmult_dbl35_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU("ADD"), .XSER(XSER))
                 xMDSP_IM ( .M1_AA(DI_IM), .M1_BB(WW_RE), .M2_AA(DI_RE), .M2_BB(WW_IM), .MP_12(D_IM), .RST(RST), .CLK(CLK) );            
             
             // ---- Data width from 35 to 52 ----
             end else if ((DTW > 35) & (DTW < 53)) begin : xTRPL_DSP
             
-                int_cmult_trpl52_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU(4'b0011), .XSER(XSER))
+                int_cmult_trpl52_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU("SUB"), .XSER(XSER))
                 xMDSP_RE ( .M1_AA(DI_IM), .M1_BB(WW_IM), .M2_AA(DI_RE), .M2_BB(WW_RE), .MP_12(D_RE), .RST(RST), .CLK(CLK) );
                 
-                int_cmult_trpl52_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU(4'b0000), .XSER(XSER))
+                int_cmult_trpl52_dsp48 #( .MAW(DTW), .MBW(TWD), .XALU("ADD"), .XSER(XSER))
                 xMDSP_IM ( .M1_AA(DI_IM), .M1_BB(WW_RE), .M2_AA(DI_RE), .M2_BB(WW_IM), .MP_12(D_IM), .RST(RST), .CLK(CLK) );                
             end
         end

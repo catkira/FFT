@@ -1,14 +1,38 @@
+// -------------------------------------------------------------------------------
+// modifications are private code of benjamin menkuec, not for commercial use
+// no redistribution without consent of owner
+// copyright benjamin menkuec
+// -------------------------------------------------------------------------------
+
+// -------------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 //
-// Title       : int_delay_line
-// Design      : fpfftk
-// Author      : Kapitanov
-// Company     :
+//  GNU GENERAL PUBLIC LICENSE
+//  Version 3, 29 June 2007
+//
+//    Copyright (c) 2018 Kapitanov Alexander
+//    Copyright (c) 2023 Benjamin Menkuec
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+//  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
+//  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
+//  OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, 
+//  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
+//  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM  
+//  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF 
+//  ALL NECESSARY SERVICING, REPAIR OR CORRECTION. 
 //
 //-----------------------------------------------------------------------------
-//
-// Description : version 1.1 
-//
 //-----------------------------------------------------------------------------
 //
 //    Version 1.0  29.09.2015
@@ -132,316 +156,171 @@
 // X3_BB:                        \4/\5/\6/\7/\C/\D/\E/\F/
 //                    
 //
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-//
-//  GNU GENERAL PUBLIC LICENSE
-//  Version 3, 29 June 2007
-//
-//    Copyright (c) 2018 Kapitanov Alexander
-//
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-//
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-//
-//  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
-//  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
-//  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
-//  OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, 
-//  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
-//  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM  
-//  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF 
-//  ALL NECESSARY SERVICING, REPAIR OR CORRECTION. 
-//
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-
-module int_delay_line 
-    #(
-        parameter 
-        NFFT   = 16,
-        NWIDTH = 4,
-        STAGE  = 16
-    )
-    (
-        input  CLK, RST,
-        input  [NWIDTH-1:0] DI_AA, DI_BB,
-        output reg [NWIDTH-1:0] DO_AA, DO_BB,
-        
-        input  DI_EN, 
-        output reg DO_VL
-    );
 
 
-    localparam integer N_INV = NFFT-STAGE-2; 
+module int_delay_line #(
+    parameter 
+    NFFT   = 16,
+    NWIDTH = 4,
+    STAGE  = 16
+)
+(
+    input                       clk,
+    input                       rst,
+    input       [NWIDTH-1:0]    di_aa,
+    input       [NWIDTH-1:0]    di_bb,
+    input                       di_en, 
 
-    reg di_enz, crx;
 
-    reg [N_INV : 0] cnt_wrcr;
-    reg [NWIDTH-1 : 0] do_aa_e, do_bb_e, di_aaz;
-    reg [NWIDTH-1 : 0] ram0_din, ram1_din, ram0_dout, ram1_dout;
+    output reg  [NWIDTH-1:0]    do_aa,
+    output reg  [NWIDTH-1:0]    do_bb,
+    output reg                  do_vl
+);
 
-    // -- Common processes for delay lines --
-    always @(posedge(CLK)) begin
-        if (RST) begin
-            cnt_wrcr <= {(N_INV+1){1'b0}};
-        end else begin
-            if (di_enz) begin
-                cnt_wrcr <= cnt_wrcr + 1'b1;
-            end 
-        end
+localparam integer N_INV = NFFT-STAGE-2; 
+
+generate
+if (N_INV == 0) begin : xZERO 
+    reg                     cross_;  // cross is a systemverilog 2005 reserved word
+    reg  [NWIDTH-1 : 0]     di_az;
+    reg  [NWIDTH-1 : 0]     di_bz;
+    reg                     di_ez;
+
+    always @(posedge clk) begin
+        if (rst)  cross_ <= 0;
+        else if (di_en)  cross_ <= !cross_;
     end
 
-    always @(posedge(CLK)) begin
-        if (RST) begin
-            ram0_din <= {(NWIDTH){1'b0}};
-            ram1_din <= {(NWIDTH){1'b0}};
+    always @(posedge clk) begin
+        di_az <= cross_ ? di_bz : di_aa;
+        do_bb <= cross_ ? di_aa : di_bz;
+    end
+
+    always @(posedge clk) begin
+        do_aa <= di_az;
+        do_vl <= di_ez;
+
+        di_bz <= di_bb;
+        di_ez <= di_en;
+    end
+
+end
+endgenerate
+
+generate
+if (N_INV > 0) begin : xSTAGES
+    reg                     cross_;  // cross is a systemverilog 2005 reserved word
+    reg     [N_INV : 0]     cnt_adr;
+    reg     [N_INV-1 : 0]   cnt_ptr;
+    reg     [N_INV-1 : 0]   cnt_del;
+
+    reg     [NWIDTH-1 : 0]  bram0  [0 : (2**N_INV)-1];
+    reg     [NWIDTH-1 : 0]  bram1  [0 : (2**N_INV)-1];
+
+    reg     [NWIDTH-1 : 0]  ram0_di;
+    reg     [NWIDTH-1 : 0]  ram0_do;
+    reg     [NWIDTH-1 : 0]  ram1_di;
+    reg     [NWIDTH-1 : 0]  ram1_do;
+
+    wire    [N_INV-1 : 0]   add0_rd;
+    reg     [N_INV-1 : 0]   add0_wr;
+    reg     [N_INV-1 : 0]   add1_rd;
+    reg     [N_INV-1 : 0]   add1_wr;
+
+    wire                    ram0_rd;
+    reg                     ram0_we;
+    reg                     ram1_rd;
+    reg                     ram1_we;
+
+    reg                     ram_we;
+
+    reg     [N_INV : 0]     cnt_trd;
+    reg     [N_INV : 0]     cnt_twr;
+    reg                     cnt_ena;
+
+    reg     [NWIDTH-1 : 0]  di_az;
+
+    always @(posedge clk) begin
+        if      (rst)    cnt_adr <= 0;
+        else if (di_en)  cnt_adr <= cnt_adr + 1;
+    end
+
+    always @(posedge clk) begin
+        if      (rst)      cnt_ptr <= 0;
+        else if (cnt_ena)  cnt_ptr <= cnt_ptr + 1;
+    end
+
+    always @(posedge clk)  di_az <= di_aa;
+    // ---- Cross-commutation ----
+    always @(posedge clk) begin
+        ram1_di <= cross_ ? ram0_do : di_az;
+        do_bb   <= cross_ ? di_az : ram0_do;
+    end
+    always @(posedge clk)  cross_ <= cnt_adr[N_INV];
+
+    always @(posedge clk) begin
+        if (rst) begin
+            cnt_trd <= 1'b1;
+            cnt_twr <= 1'b1;
+            cnt_ena <= 0;
         end else begin
-            if (DI_EN) begin
-                ram0_din <= DI_BB;
-            end
-            if (crx) begin
-                ram1_din <= ram0_dout; 
+            // ---- @write data ----            
+            if (cnt_trd[N_INV]) begin
+                cnt_trd <= 1'b1;
             end else begin
-                ram1_din <= di_aaz;
+                if (di_en)  cnt_trd <= cnt_trd + 1;
             end
+            // ---- delayed data enable ----
+            if (cnt_trd[N_INV])  cnt_ena <= 1'b1;
+            else if (cnt_twr[N_INV])  cnt_ena <= 0;
+            // ---- @read data ----
+            if (cnt_twr[N_INV]) cnt_twr <= 1'b1;
+            else if (cnt_ena)  cnt_twr <= cnt_twr + 1;
         end
     end
 
-    always @(*) begin
-        DO_AA = do_aa_e;
+    assign ram0_di = di_bb;
+
+    // ---- RAM Write enable ----
+    always @(posedge clk) begin
+        ram_we <= di_en;
+        ram1_we <= ram_we;
     end
-    
-    generate 
-        if (N_INV < 9) begin
+    assign ram0_we = di_en;
 
-            reg [2**(N_INV)-1 : 0] ram_del;
+    // ---- Address write ----
+    always @(posedge clk) begin
+        cnt_del <= cnt_adr;
+        add1_wr <= cnt_del;
+    end
+    always @(*)  add0_wr = cnt_adr;
 
-            always @(*) begin
-                di_enz = DI_EN;
-                di_aaz = DI_AA;
-                crx = cnt_wrcr[N_INV];
-            end
-                    
-            integer i;
-            always @(posedge(CLK)) begin
-                for(i = 2**(N_INV)-1; i > 0; i=i-i) begin
-                    ram_del[i] <= ram_del[i-1];
-                end
-                ram_del[0] <= DI_EN;
-            end
+    // ---- RAM Read enable ----
+    always @(posedge clk) begin
+        ram1_rd <= cnt_ena;
+        add1_rd <= cnt_ptr;
+    end
+    assign ram0_rd = cnt_ena;
+    assign add0_rd = cnt_ptr;
 
-            // -- RAMB delay line 1 -- 
-            if (N_INV > 0) begin
+    //assign do_aa = ram1_do; // assign to reg is same as always @(*)
+    always @(*)  do_aa = ram1_do;
+    always @(posedge clk)  do_vl <= ram1_rd;
 
-                localparam integer delay=2**(N_INV)-2;
-                reg [NWIDTH-1 : 0] dout0, dout1 [delay : 0];
+    // ------------ First RAMB delay line ------------ 
+    always @(posedge clk) begin
+        if (ram0_we)  bram0[add0_wr] <= ram0_di;
+        if (ram0_rd)  ram0_do <= bram0[add0_rd];
+    end
 
-                always @(posedge(CLK)) begin
-                    for(i = delay; i > 0; i=i-i) begin
-                        dout0[i] <= dout0[i-1];
-                        dout1[i] <= dout1[i-1];
-                    end
-                    dout0[0] <= ram0_din;
-                    dout1[0] <= ram1_din;
-                end
-                
-                always @(*) begin
-                    ram0_dout = dout0[delay];
-                end
-                
-            // -- RAMB delay line 0 --
-            end else if (N_INV == 0) begin
-            
-                always @(*) begin
-                    ram0_dout = ram0_din;
-                    ram0_dout = ram1_din;
-                end
-            end
-            
-            always @(posedge(CLK)) begin
-                DO_VL <= ram_del[2**(N_INV)-1];
-            end
+    // ------------ Second RAMB delay line ------------
+    always @(posedge clk) begin
+        if (ram1_we)  bram1[add1_wr] <= ram1_di;
+        if (ram1_rd)  ram1_do <= bram1[add1_rd];
+    end
 
-            always @(posedge(CLK)) begin
-                if (ram_del[2**(N_INV)-1]) begin
-                    do_aa_e <= ram1_dout;
-                    
-                    if (crx) begin
-                        do_bb_e <= DI_AA; 
-                    end else begin
-                        do_bb_e <= ram0_dout;
-                    end
-                end
-            end
+end
+endgenerate
 
-            always @(*) begin
-                DO_BB = do_bb_e;
-            end    
-
-        // ---- Generate LONG delay line ----
-        end else if (N_INV >= 9) begin
-        
-        
-        end
-    endgenerate
-
-    // signal cnt_wr         : std_logic_vector(N_INV-1 : 0];    
-    
-    // signal addrs        : std_logic_vector(N_INV-1 : 0]; 
-    // signal addrs1        : std_logic_vector(N_INV-1 : 0];
-    // signal addrz        : std_logic_vector(N_INV-1 : 0]; 
-    // signal addrz1        : std_logic_vector(N_INV-1 : 0];
-    
-    // signal dir_aa        : std_logic_vector[NWIDTH-1 : 0];
-  
-    // signal do_bb_z        : std_logic_vector[NWIDTH-1 : 0];        
-    // signal del_o        : std_logic;
-
-    // signal we            : std_logic:='0';
-    // signal wes            : std_logic:='0';
-    // signal wes1            : std_logic:='0';
-    // signal wez            : std_logic:='0';
-    // signal wez1            : std_logic:='0';
-    // signal do_vlid        : std_logic:='0';
-    
-    // signal rw_del        : std_logic;
-    // signal cnt_trd        : std_logic_vector(NFFT-2-stage : 0];    
-    // signal cnt_twr        : std_logic_vector(NFFT-2-stage : 0];        
-    // signal cnt_ena        : std_logic;    
-
-    // type ram_t is array(0 to 2**(N_INV)-1) of std_logic_vector[NWIDTH-1 : 0];  
-    // signal bram0                    : ram_t;
-    // signal bram1                    : ram_t;    
-    
-    // attribute ram_style    : string;
-    // attribute ram_style of bram0    : signal is "block";        
-    // attribute ram_style of bram1    : signal is "block";
-    
-    // signal di_aa_ze     : std_logic_vector[NWIDTH-1 : 0];
-    
-    // pr_cnd: process(clk) is
-    // begin
-        // if rising_edge(clk) then
-            // if (rst = '1') then 
-                // cnt_trd <= (0 => '1', others => '0');
-                // cnt_twr <= (0 => '1', others => '0');
-                // cnt_ena <= '0';
-            // else
-                // -- @write data --
-                // if (cnt_trd(NFFT-2-stage) = '1') then
-                    // cnt_trd <= (0 => '1', others => '0');
-                // else 
-                    // if (di_en = '1') then
-                        // cnt_trd <= cnt_trd + '1';
-                    // end if;    
-                // end if;                
-                // -- delayed data enable --
-                // if (cnt_trd(NFFT-2-stage) = '1') then
-                    // cnt_ena <= '1';
-                // elsif (cnt_twr(NFFT-2-stage) = '1') then
-                    // cnt_ena <= '0';
-                // end if;
-                // -- @read data --
-                // if (cnt_twr(NFFT-2-stage) = '1') then
-                    // cnt_twr <= (0 => '1', others => '0');
-                // else 
-                    // if (cnt_ena = '1') then
-                        // cnt_twr <= cnt_twr + '1';
-                    // end if;    
-                // end if;                
-            // end if;
-        // end if;
-    // end process;    
-    // del_o <= cnt_ena when rising_edge(clk);         
-    
-    // di_enz <= di_en when rising_edge(clk);    
-    // crx <= cnt_wrcr(N_INV) when rising_edge(clk);         
-    // di_aa_ze <= di_aa when rising_edge(clk);
-    // di_aaz <= di_aa_ze when rising_edge(clk);
-    
-    // we   <=    di_en when rising_edge(clk);
-    // wez  <=    we when rising_edge(clk);
-
-    // wes  <=    wez when rising_edge(clk);
-    
-    // wez1 <=    del_o when rising_edge(clk);     
-    // wes1 <=    wez1 when rising_edge(clk); 
-    // do_vlid <= wes1 when rising_edge(clk);
-    // do_vl <= do_vlid when rising_edge(clk);    
-    
-    // addrz   <= cnt_wrcr(N_INV-1 : 0] when rising_edge(clk);
-    // addrz1  <= cnt_wr when rising_edge(clk);    
-    // addrs   <= addrz when rising_edge(clk);
-    // addrs1  <= addrz1 when rising_edge(clk);    
-    
-    // pr_cnt: process(clk) is
-    // begin
-        // if rising_edge(clk) then
-            // if (rst = '1') then 
-                // cnt_wr <= (others => '0');
-            // else
-                // if (del_o = '1') then
-                    // cnt_wr <= cnt_wr + '1';
-                // end if;    
-            // end if;
-        // end if;
-    // end process;
-    
-    // pr_do_bb: process(clk) is
-    // begin
-        // if rising_edge(clk) then
-            // if (crx = '1') then
-                // do_bb_e <= dir_aa;               
-            // else
-                // do_bb_e <= ram0_dout;             
-            // end if;
-        // end if;
-    // end process;
-    
-    // dir_aa        <= di_aa_ze when rising_edge(clk);    
-
-    // do_bb_z     <= do_bb_e when rising_edge(clk);
-    // do_bb        <= do_bb_z when rising_edge(clk);
-    // do_aa_e     <= ram1_dout when rising_edge(clk);
-     
-    // -- First RAMB delay line -- 
-    // RAM0: process(clk) is
-    // begin
-        // if (clk'event and clk = '1') then
-            // if (rst = '1') then
-                // ram0_dout <= (others => '0');
-            // else
-                // if (del_o = '1') then
-                    // ram0_dout <= bram0(conv_integer(cnt_wr)); -- dual port
-                // end if;
-            // end if;                
-            // if (we = '1') then
-                // bram0(conv_integer(cnt_wrcr(N_INV-1 : 0])) <= ram0_din;
-            // end if;
-        // end if;    
-    // end process;
-    
-    // -- Second RAMB delay line --                
-    // RAM1: process(clk) is
-    // begin
-        // if (clk'event and clk = '1') then
-            // if (rst = '1') then
-                // ram1_dout <= (others => '0');
-            // else
-                // if (wes1 = '1') then
-                    // ram1_dout <= bram1(conv_integer(addrs1)); -- dual port
-                // end if;
-            // end if;                
-            // if (wes = '1') then
-                // bram1(conv_integer(addrs)) <= ram1_din;
-            // end if;
-        // end if;    
-    // end process;    
-// end begin;
 
 endmodule

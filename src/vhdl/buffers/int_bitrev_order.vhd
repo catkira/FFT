@@ -1,38 +1,10 @@
 -------------------------------------------------------------------------------
---
--- Title       : Bit-reverse 
--- Design      : FFT
--- Author      : Kapitanov Alexander
--- Company     : 
--- E-mail      : sallador@bk.ru
---
--------------------------------------------------------------------------------
---
---    Version 1.0  13.08.2017
---       Description: Universal bitreverse algorithm for FFT project
---       It has several independent DPRAM components for FFT stages 
---       between 2k and 512k
---
---    Version 2.0  01.08.2018
---       Bit-reverse w/ signle cache RAM for operation!
---
---    Version 2.1  06.12.2018
---       Fix some logic errors and change RAM mode to READ_FIRST
---
---    Version 2.2  07.12.2018
---       Add PAIR parameter:
---
---       PAIR = TRUE : Convert data flow from bit-reverse order to normal order
---       PAIR = FALSE: Convert data flow from two-part bit-reverse order 
---                     to normal order.
---
--------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 --
 --  GNU GENERAL PUBLIC LICENSE
 --  Version 3, 29 June 2007
 --
---  Copyright (c) 2018 Kapitanov Alexander
+--  Copyright (c) 2023 Benjamin Menkuec
 --
 --  This program is free software: you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -63,7 +35,8 @@ entity int_bitrev_order is
         PAIR         : boolean:=TRUE;   --! Bitreverse mode: 
                                         --  TRUE - Even/Odd or FALSE - Half Pair
         STAGES       : integer:=11;     --! FFT stages
-        NWIDTH       : integer:=16      --! Data width
+        NWIDTH       : integer:=16;     --! Data width
+        SHIFTED      : integer:=0
     );
     port (
         clk          : in  std_logic;   --! Clock
@@ -87,103 +60,110 @@ begin
         for ii in 0 to Len-2 loop
             Tmp(ii) := Dat(Len-2-ii);
         end loop;
-        --Tmp(0) :=  Dat(Len-1);
-        --for ii in 1 to Len-1 loop
-        --    Tmp(ii) := Dat(ii-1);
-        --end loop;
-        --Tmp(Len-1) :=  Dat(0);
-        --for ii in 1 to Len-1 loop
-        --    Tmp(ii-1) := Dat(ii);
-        --end loop;
     else
         for ii in 0 to Len-1 loop
             Tmp(ii) := Dat(Len-1-ii);
         end loop;
     end if;
+    if (SHIFTED = 1) then
+        Tmp := Tmp + 2**(STAGES-1);
+    end if;
     return Tmp; 
 end function;
 
-signal cnt       : std_logic_vector(STAGES downto 0); 
+signal cnt_wr         : std_logic_vector(STAGES downto 0); 
+signal cnt_rd         : std_logic_vector(STAGES downto 0); 
 
-signal ram_adr   : std_logic_vector(STAGES-1 downto 0);
-signal ram_di    : std_logic_vector(NWIDTH-1 downto 0);
-signal ram_do    : std_logic_vector(NWIDTH-1 downto 0);
+signal ram_adr_wr     : std_logic_vector(STAGES-1 downto 0);
+signal ram_adr_rd     : std_logic_vector(STAGES-1 downto 0);
+signal ram_di         : std_logic_vector(NWIDTH-1 downto 0);
+signal ram_has_data   : std_logic;
+signal ram_has_data_f : std_logic;
 
-signal wea       : std_logic;
-signal rdt       : std_logic;
-signal vld       : std_logic;
-
-signal cnt1st    : std_logic_vector(STAGES downto 0);    
+signal wea            : std_logic;
 
 type ram_t is array(0 to 2**(STAGES)-1) of std_logic_vector(NWIDTH-1 downto 0);
 signal bmem     : ram_t;
 
 begin
 
----------------- Data out and valid proc ----------------
+------------------- bram vaid data proc ---------------
+-- the ram_has_data flag is used to start the output of data
+-- even when no new input data is coming, this is necessary
+-- to prevent that the last samples are stuck in this module
 pr_cnt1: process(clk) is
 begin
     if rising_edge(clk) then
         if (reset = '1') then
-            cnt1st <= (others => '0');        
+            ram_has_data <= '0';
         else
-            if (di_en = '1') then
-                if (cnt1st(STAGES) = '0') then
-                    cnt1st <= cnt1st + '1';
-                end if;
+            if ((cnt_wr(STAGES-1 downto 0) = 2**STAGES - 1) and di_en = '1') then
+                ram_has_data <= '1';
+            elsif (cnt_rd(STAGES-1 downto 0) = 2**STAGES - 1) then
+                ram_has_data <= '0';
             end if;
         end if;
     end if;
 end process;
 
----------------- Common proc ----------------
-ram_di <= di_dt when rising_edge(clk);
-
-pr_cnt: process(clk) is
+---------------- Counter proc ----------------
+pr_cnt_wr: process(clk) is
 begin
     if rising_edge(clk) then
         if (reset = '1') then
-            cnt <= (others => '0');
-        else
-            if (di_en = '1') then
-                cnt <= cnt + '1';
-            end if;
+            cnt_wr <= (others => '0');
+        elsif (di_en = '1') then
+            cnt_wr <= cnt_wr + '1';
         end if;
     end if;
 end process;
+
+pr_cnt_rd: process(clk) is
+begin
+    if rising_edge(clk) then
+        if (reset = '1') then
+            cnt_rd <= (others => '0');
+        elsif ((di_en = '1') and ram_has_data = '1') then
+                cnt_rd <= cnt_rd + '1';
+        elsif (ram_has_data = '1') then
+                cnt_rd <= cnt_rd + '1';
+        end if;
+    end if;
+end process;
+
 
 wea <= di_en when rising_edge(clk);
 
 ---------------- Read / Address proc ----------------
-vld <= rdt when rising_edge(clk);
-rdt <= di_en and cnt1st(STAGES) when rising_edge(clk);
-
 pr_adr: process(clk) is
 begin
     if rising_edge(clk) then
-        if (cnt(cnt'left) = '0') then
-            ram_adr <= cnt(STAGES-1 downto 0);
+        if (cnt_wr(cnt_wr'left) = '1') then
+            ram_adr_rd <= cnt_rd(STAGES-1 downto 0);
+            ram_adr_wr <= cnt_wr(STAGES-1 downto 0);
         else    
-            ram_adr <= bit_pair(PAIR, STAGES, cnt);
+            ram_adr_rd <= bit_pair(PAIR, STAGES, cnt_rd);
+            ram_adr_wr <= bit_pair(PAIR, STAGES, cnt_wr);
         end if;
     end if;
 end process;
 
----------------- Mapping RAM block / distr ---------------- 
+---------------- RAM read / write proc ---------------- 
+ram_di <= di_dt when rising_edge(clk);
 PR_RAM: process(clk) is
 begin
     if (clk'event and clk = '1') then
-        if (rdt = '1') then
-            ram_do <= bmem(conv_integer(ram_adr));
+        if (ram_has_data_f = '1') then
+            do_dt <= bmem(conv_integer(ram_adr_rd));
         end if;
         if (wea = '1') then
-            bmem(conv_integer(ram_adr)) <= ram_di;
+            bmem(conv_integer(ram_adr_wr)) <= ram_di;
         end if;
     end if;    
 end process;
 
 ---------------- Data out and valid proc ----------------
-do_dt <= ram_do; -- when rising_edge(clk);
-do_vl <= vld;    -- when rising_edge(clk);
+ram_has_data_f <= ram_has_data when rising_edge(clk);
+do_vl <= ram_has_data_f when rising_edge(clk);
 
 end int_bitrev_order;

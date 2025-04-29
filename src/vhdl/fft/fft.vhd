@@ -1,11 +1,32 @@
 -------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 --
--- Title       : int_fft_single_path
--- Design      : FFT
--- Author      : Kapitanov Alexander
--- Company     : 
--- E-mail      : sallador@bk.ru
+--  GNU GENERAL PUBLIC LICENSE
+--  Version 3, 29 June 2007
 --
+--  Copyright (c) 2018 Kapitanov Alexander
+--  Copyright (c) 2023 Benjamin Menkuec
+--                                                               
+--  This program is free software: you can redistribute it and/or modify
+--  it under the terms of the GNU General Public License as published by
+--  the Free Software Foundation, either version 3 of the License, or
+--  (at your option) any later version.
+--
+--  You should have received a copy of the GNU General Public License
+--  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+--
+--  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+--  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
+--  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
+--  OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, 
+--  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
+--  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM 
+--  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF 
+--  ALL NECESSARY SERVICING, REPAIR OR CORRECTION. 
+-- 
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
 -- Description : Main module for FFT/IFFT logic
 --
 -- Has several important constants:
@@ -50,56 +71,28 @@
 --    Date: 06.12.2018. 
 --      Rounding mode should be tested on DW > 48! see int_dif2_fly.vhd
 --
--------------------------------------------------------------------------------
--------------------------------------------------------------------------------
---
--- The MIT License (MIT)
--- Copyright (c) 2018 Kapitanov Alexander
---
--- Permission is hereby granted, free of charge, to any person obtaining a copy 
--- of this software and associated documentation files (the "Software"), 
--- to deal in the Software without restriction, including without limitation 
--- the rights to use, copy, modify, merge, publish, distribute, sublicense, 
--- and/or sell copies of the Software, and to permit persons to whom the 
--- Software is furnished to do so, subject to the following conditions:
---
--- The above copyright notice and this permission notice shall be included in 
--- all copies or substantial portions of the Software.
---
---
--- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
--- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
--- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
--- THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
--- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
--- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS 
--- IN THE SOFTWARE.
---
--------------------------------------------------------------------------------
--------------------------------------------------------------------------------
+
 library ieee;
 use ieee.std_logic_1164.all;  
 use ieee.std_logic_signed.all;
 use ieee.std_logic_arith.all;
 
-entity int_fft_single_path is
+entity fft is
     generic (
         NFFT           : integer:=13;        --! Number of FFT stages
         DATA_WIDTH     : integer:=16;        --! Data input width (8-32)
         TWDL_WIDTH     : integer:=16;        --! Data width for twiddle factor
-        -- RAMB_TYPE      : string:="CONT";     --! Data stream mode: "CONT" - continuous, "WRAP" - bursting
         -- MODE           : string:="UNSCALED"; --! Unscaled, Rounding, Truncate
         FORMAT         : integer:=1;         --! 1 - Uscaled, 0 - Scaled
         RNDMODE        : integer:=0;         --! 0 - Truncate, 1 - Rounding (FORMAT should be = 1)
 		XSERIES        : string:="NEW";      --! FPGA family: for 6/7 series: "OLD"; for ULTRASCALE: "NEW"
-        USE_MLT        : boolean:=FALSE      --! Use Multiplier for calculation M_PI in Twiddle factor
+        USE_MLT        : boolean:=FALSE;     --! Use Multiplier for calculation M_PI in Twiddle factor
+        SHIFTED        : integer:=0          --| shifted output like numpy fft.fftshift
     );
     port (
         ---- Common ----
         RESET          : in  std_logic;    --! Global reset
         CLK            : in  std_logic;    --! DSP clock
-        ---- Butterflies ----
-        FLY_FWD        : in  std_logic;    --! Forward: '1' - use BFLY, '0' -don't use
         ---- Input data ----
         DI_RE          : in  std_logic_vector(DATA_WIDTH-1 downto 0); --! Re data input
         DI_IM          : in  std_logic_vector(DATA_WIDTH-1 downto 0); --! Im data input
@@ -110,9 +103,9 @@ entity int_fft_single_path is
         DO_VL          : out std_logic    --! Output valid data
     );
 
-end int_fft_single_path;
+end fft;
 
-architecture int_fft_single_path of int_fft_single_path is   
+architecture fft of fft is   
 
 ---------------- Input data ----------------
 signal di_dt      : std_logic_vector(2*DATA_WIDTH-1 downto 0);
@@ -181,7 +174,6 @@ xFFT: entity work.int_fftNk
     generic map (
         -- IS_SIM        => FALSE,
         NFFT          => NFFT,
-        RAMB_TYPE     => "CONT",
         -- MODE          => MODE,
         FORMAT        => FORMAT,
         RNDMODE       => RNDMODE,
@@ -197,7 +189,7 @@ xFFT: entity work.int_fftNk
         DI_IM1        => di_im1,
         DI_ENA        => di_ena,
 
-        USE_FLY       => fly_fwd,
+        USE_FLY       => '1',
 
         DO_RE0        => do_re0,
         DO_IM0        => do_im0,
@@ -239,7 +231,8 @@ xBR_RE : entity work.int_bitrev_order
     generic map (
         PAIR       => TRUE,
         STAGES     => NFFT,
-        NWIDTH     => FORMAT*NFFT+DATA_WIDTH
+        NWIDTH     => FORMAT*NFFT+DATA_WIDTH,
+        SHIFTED    => SHIFTED
     )
     port map (
         clk        => clk,
@@ -255,7 +248,8 @@ xBR_IM : entity work.int_bitrev_order
     generic map (
         PAIR       => TRUE,        
         STAGES     => NFFT,
-        NWIDTH     => FORMAT*NFFT+DATA_WIDTH
+        NWIDTH     => FORMAT*NFFT+DATA_WIDTH,
+        SHIFTED    => SHIFTED
     )
     port map (
         clk        => clk,
@@ -277,4 +271,4 @@ begin
     end if;
 end process;
 
-end int_fft_single_path;
+end fft;

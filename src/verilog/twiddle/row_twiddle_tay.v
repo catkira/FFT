@@ -1,12 +1,38 @@
 // -------------------------------------------------------------------------------
+// modifications are private code of benjamin menkuec, not for commercial use
+// no redistribution without consent of owner
+// copyright benjamin menkuec
+// -------------------------------------------------------------------------------
+
+// -------------------------------------------------------------------------------
+
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 // --
-// -- Title       : row_twiddle_tay
-// -- Design      : fpfftk
-// -- Author      : Kapitanov Alexander
-// -- Company     : 
+// --  GNU GENERAL PUBLIC LICENSE
+// --  Version 3, 29 June 2007
 // --
-// -- Description : Integer Twiddle factor w/ Taylor scheme
+// --  Copyright (c) 2018 Kapitanov Alexander
+// --  Copyright (c) 2023 Benjamin Menkuec
 // --
+// --  This program is free software: you can redistribute it and/or modify
+// --  it under the terms of the GNU General Public License as published by
+// --  the Free Software Foundation, either version 3 of the License, or
+// --  (at your option) any later version.
+// --
+// --  You should have received a copy of the GNU General Public License
+// --  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// --
+// --  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+// --  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
+// --  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
+// --  OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, 
+// --  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
+// --  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM 
+// --  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF 
+// --  ALL NECESSARY SERVICING, REPAIR OR CORRECTION. 
+// -- 
+// -------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------
 // --
 // --    Version 1.0  22.11.2018
@@ -60,40 +86,15 @@
 // --   P = A[24:0] * B[17:0] + C[47:0] (7-series)
 // --   P = A[26:0] * B[17:0] + C[47:0] (Ultrascale / Ultrascale+)
 // --
-// -------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------
-// --
-// --  GNU GENERAL PUBLIC LICENSE
-// --  Version 3, 29 June 2007
-// --
-// --  Copyright (c) 2018 Kapitanov Alexander
-// --
-// --  This program is free software: you can redistribute it and/or modify
-// --  it under the terms of the GNU General Public License as published by
-// --  the Free Software Foundation, either version 3 of the License, or
-// --  (at your option) any later version.
-// --
-// --  You should have received a copy of the GNU General Public License
-// --  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-// --
-// --  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
-// --  APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT 
-// --  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY 
-// --  OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, 
-// --  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
-// --  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM 
-// --  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF 
-// --  ALL NECESSARY SERVICING, REPAIR OR CORRECTION. 
-// -- 
-// -------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------
+`timescale 1ns / 1ns
 
 module row_twiddle_tay 
     #(
         parameter 
-        AWD    = 16,    // --! Sin/cos MSB (Mag = 2**Amag)
-        XSER   = "NEW", // --! FPGA family: for 6/7 series: "OLD"; for ULTRASCALE: "NEW"    
-        STG    = 2      // --! Stage of Taylor series: 0, 1, 2, 3, 4, 5, 6, 7 
+        AWD     = 16,    // --! Sin/cos MSB (Mag = 2**Amag)
+        XSER    = "NEW", // --! FPGA family: for 6/7 series: "OLD"; for ULTRASCALE: "NEW"    
+        USE_MLT = 0,     // --! use DSP48 for calculation PI * CNT
+        STG     = 2      // --! Stage of Taylor series: 0, 1, 2, 3, 4, 5, 6, 7 
     )
     (
         input clk, rst,

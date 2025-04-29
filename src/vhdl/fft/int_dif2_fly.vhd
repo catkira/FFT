@@ -1,23 +1,4 @@
 -------------------------------------------------------------------------------
---
--- Title       : int_dif2_fly
--- Design      : FFT
--- Author      : Kapitanov Alexander
--- Company     : 
--- E-mail      : sallador@bk.ru
---
--------------------------------------------------------------------------------
---
--- Version 1.0 : 14.04.2018
---
--- Description: Simple butterfly Radix-2 for FFT (DIF)
---
--- Algorithm: Decimation in frequency
---
---    X = (A+B), 
---    Y = (A-B)*W;
---
--------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 --
 --  GNU GENERAL PUBLIC LICENSE
@@ -44,6 +25,15 @@
 -- 
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
+
+-- Description: Simple butterfly Radix-2 for FFT (DIF)
+--
+-- Algorithm: Decimation in frequency
+--
+--    X = (A+B), 
+--    Y = (A-B)*W;
+--
+
  
 library ieee;
 use ieee.std_logic_1164.all;

@@ -1,24 +1,4 @@
 // -------------------------------------------------------------------------------
-// --
-// -- Title       : int_dif2_fly
-// -- Design      : FFT
-// -- Author      : Kapitanov Alexander
-// -- Company     :
-// -- E-mail      : sallador@bk.ru
-// --
-// -- Description : DIF butterfly (Radix-2)
-// --
-// -------------------------------------------------------------------------------
-// --
-// --    Version 1.0  29.11.2018
-// --    Description: Simple butterfly Radix-2 for FFT (DIF)
-// --
-// --    Algorithm: Decimation in frequency
-// --
-// --    X = (A+B), 
-// --    Y = (A-B)*W;
-// --
-// -------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------
 // --
 // --  GNU GENERAL PUBLIC LICENSE
@@ -45,14 +25,25 @@
 // -- 
 // -------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------
+// --
+// --    Version 1.0  29.11.2018
+// --    Description: Simple butterfly Radix-2 for FFT (DIF)
+// --
+// --    Algorithm: Decimation in frequency
+// --
+// --    X = (A+B), 
+// --    Y = (A-B)*W;
+// --
+
 
 module int_dif2_fly
     #(
         parameter
         STAGE    = 3,    // --! Butterfly stages
+        SCALE    = 1,    // --! If 1 - Scaled, else Unscaled (truncate)
         DTW      = 16,   // --! Data width
         TFW      = 16,   // --! Twiddle factor width
-        SCALE    = 1,    // --! If 1 - Scaled, else Unscaled (truncate)
+        RNDMODE  = 0,
         XSER     = "OLD" // --! Xilinx series: NEW - DSP48E2, OLD - DSP48E1
     )
     (
@@ -62,7 +53,7 @@ module int_dif2_fly
         input in_en,
         input [TFW-1 : 0] ww_re, ww_im,
 
-        output signed [DTW-SCALE : 0] oa_re, oa_im, ob_re, ob_im,
+        output [DTW-SCALE : 0] oa_re, oa_im, ob_re, ob_im,
         output do_vl
     );
 
@@ -104,26 +95,48 @@ module int_dif2_fly
 
     // ---------------------------------------------------------------
     // -------- SUM = (A + B), DIF = (A-B) --------
-    int_addsub_dsp48 #(
-        .DSPW(DTW-SCALE),
-        .XSER(XSER)
-    )
-    xADD_RE (
-        .IA_RE(ia_re[DTW-1 : SCALE]),
-        .IA_IM(ia_im[DTW-1 : SCALE]),
-        .IB_RE(ib_re[DTW-1 : SCALE]),
-        .IB_IM(ib_im[DTW-1 : SCALE]),
+    if (RNDMODE == 0 && SCALE) begin : xTRUNC
+        int_addsub_dsp48 #(
+            .DSPW(DTW-1),
+            .XSER(XSER)
+        )
+        xADD_RE (
+            .IA_RE(ia_re[DTW-1 : SCALE]),
+            .IA_IM(ia_im[DTW-1 : SCALE]),
+            .IB_RE(ib_re[DTW-1 : SCALE]),
+            .IB_IM(ib_im[DTW-1 : SCALE]),
 
-        .OX_RE(ad_re),
-        .OX_IM(ad_im),
-        .OY_RE(su_re),
-        .OY_IM(su_im),
+            .OX_RE(ad_re),
+            .OX_IM(ad_im),
+            .OY_RE(su_re),
+            .OY_IM(su_im),
 
-        .RST(rst),
-        .CLK(clk)
-    );
+            .RST(rst),
+            .CLK(clk)
+        );
+    end else begin : xUNSCALED
+        int_addsub_dsp48 #(
+            .DSPW(DTW),
+            .XSER(XSER)
+        )
+        xADD_RE (
+            .IA_RE(ia_re),
+            .IA_IM(ia_im),
+            .IB_RE(ib_re),
+            .IB_IM(ib_im),
+
+            .OX_RE(ad_re),
+            .OX_IM(ad_im),
+            .OY_RE(su_re),
+            .OY_IM(su_im),
+
+            .RST(rst),
+            .CLK(clk)
+        );        
+    end
+
+
     // ---------------------------------------------------------------
-
     generate
         // ---- First butterfly: don't need multipliers! WW0 = {1, 0} ----
         if (STAGE == 0) begin : xST0
@@ -147,7 +160,8 @@ module int_dif2_fly
 
             // ---- Counter for twiddle factor ----
             always @(posedge clk) begin
-                dt_sw <= (rst) ? 0 : ( (vl_zz[ADD_DELAY-1]) ? (~dt_sw) : dt_sw );
+                if (rst) dt_sw <= 0;
+                else if (vl_zz[ADD_DELAY-1])  dt_sw <= ~dt_sw;
             end
 
             /* --------------------------------------------------------------
@@ -161,12 +175,12 @@ module int_dif2_fly
             // ---- Flip twiddles ----
             always @(posedge clk) begin
                 // ---- WW(0){Re,Im} = {1, 0} ----
-                if (dt_sw) begin
+                if (!dt_sw) begin
                     sz_re <= su_re;
                     sz_im <= su_im;
                 end else begin
                     sz_re <= su_im;
-                    sz_im <= (su_re[DTW-SCALE]) ? (~su_re) : ((~su_re) + 1'b1);
+                    sz_im <= -su_re; //su_re[DTW-SCALE] ? (~su_re) : ((~su_re) + 1'b1);
                 end
             end
 

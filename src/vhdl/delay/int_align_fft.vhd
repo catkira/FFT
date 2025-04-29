@@ -1,22 +1,11 @@
 -------------------------------------------------------------------------------
---
--- Title       : Align FFT data delay
--- Design      : Integer FFTK
--- Author      : Kapitanov
--- Company     :
---
--- Description : int_align_fft
---
--- Version 1.0  01.02.2018
--- 		Delay correction for TWIDDLE factor and FLYes: Forward FFT
---																   
--------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 --
 --	GNU GENERAL PUBLIC LICENSE
 --  Version 3, 29 June 2007
 --
 --	Copyright (c) 2018 Kapitanov Alexander
+--	Copyright (c) 2023 Benjamin Menkuec
 --
 --  This program is free software: you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -37,6 +26,7 @@
 -- 
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
+
 library ieee;
 use ieee.std_logic_1164.all;  
 

@@ -100,7 +100,7 @@ use unisim.vcomponents.dsp48e2;
 
 entity row_twiddle_tay is
 	generic (
-		TD			: time:=0.5ns;	--! Simulation time	
+		TD			: time:=0.5 ns;	--! Simulation time	
 		AWD			: integer:=16;	--! Sin/cos MSB (Mag = 2**Amag)		
 		XSER		: string:="NEW"; --! FPGA family: for 6/7 series: "OLD"; for ULTRASCALE: "NEW"	
 		USE_MLT		: boolean:=FALSE; --! use DSP48 for calculation PI * CNT

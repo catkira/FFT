@@ -63,14 +63,14 @@
 // 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-
+`timescale 1ns / 1ns
 
 module int_cmult18x25_dsp48
     #(
         parameter 
         MAW  = 24,
         MBW  = 17,
-        ALUMODE = 4'b0000,
+        XALU = "ADD",
         XSER  = "OLD"
     )
     (
@@ -80,6 +80,8 @@ module int_cmult18x25_dsp48
         input  signed [MBW-1 : 0] M1_BB, M2_BB,
         output signed [47 : 0] MP_12
     );
+
+    localparam ALUMODE = (XALU == "ADD") ? 4'b0000 : 4'b0011;
 
     wire [29 : 0] dspA_M1, dspA_M2;
     wire [17 : 0] dspB_M1, dspB_M2;
@@ -185,7 +187,7 @@ module int_cmult18x25_dsp48
                .CARRYCASCIN(1'b0),
                .MULTSIGNIN(1'b0),
                .PCIN(dspP_M2),
-               .ALUMODE(ALUMODE),
+               .ALUMODE(4'b0),
                .CARRYINSEL(3'b0),
                .CLK(CLK),
                .INMODE(5'b0),
@@ -311,7 +313,7 @@ module int_cmult18x25_dsp48
                .CARRYCASCIN(1'b0),
                .MULTSIGNIN(1'b0),
                .PCIN(dspP_M2),
-               .ALUMODE(ALUMODE),
+               .ALUMODE(4'b0),
                .CARRYINSEL(3'b0),
                .CLK(CLK),
                .INMODE(5'b0),
